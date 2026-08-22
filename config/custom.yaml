@@ -20,7 +20,12 @@ llm:
 source:
   arxiv:
     category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+  acl:
+    lookback_hours: 24
+  acm:
+    lookback_hours: 24
+    max_results: 100
 
 executor:
   debug: ${oc.env:DEBUG,null}
-  source: ['arxiv']
+  source: ['arxiv', 'acl', 'acm']
