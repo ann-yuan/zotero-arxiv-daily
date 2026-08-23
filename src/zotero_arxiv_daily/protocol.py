@@ -26,7 +26,25 @@ class Paper:
 
     def _generate_tldr_with_llm(self, openai_client:OpenAI,llm_params:dict) -> str:
         lang = llm_params.get('language', 'English')
-        prompt = f"Given the following information of a paper, generate a one-sentence TLDR summary in {lang}:\n\n"
+        bilingual = bool(llm_params.get('bilingual', False))
+        if bilingual:
+            prompt = (
+                "Given the following information of a paper, generate a concise one-sentence TLDR "
+                "in English followed by an accurate Simplified Chinese translation. "
+                "Return exactly two lines in this format:\n"
+                "English: <one-sentence summary>\n"
+                "中文：<the Chinese translation>\n\n"
+            )
+            system_prompt = (
+                "You are an assistant who summarizes scientific papers accurately and concisely. "
+                "Always return exactly two lines: one English TLDR and its Simplified Chinese translation."
+            )
+        else:
+            prompt = f"Given the following information of a paper, generate a one-sentence TLDR summary in {lang}:\n\n"
+            system_prompt = (
+                "You are an assistant who perfectly summarizes scientific paper, "
+                f"and gives the core idea to the user in {lang}."
+            )
         if self.title:
             prompt += f"Title:\n {self.title}\n\n"
 
@@ -50,7 +68,7 @@ class Paper:
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are an assistant who perfectly summarizes scientific paper, and gives the core idea of the paper to the user. Your answer should be in {lang}.",
+                    "content": system_prompt,
                 },
                 {"role": "user", "content": prompt},
             ],
