@@ -1,6 +1,7 @@
 """Tests for zotero_arxiv_daily.protocol: Paper.generate_tldr, Paper.generate_affiliations."""
 
 import pytest
+from types import SimpleNamespace
 
 from tests.canned_responses import make_sample_paper, make_stub_openai_client
 
@@ -24,6 +25,28 @@ def test_tldr_returns_response(llm_params):
     result = paper.generate_tldr(client, llm_params)
     assert result == "Hello! How can I assist you today?"
     assert paper.tldr == result
+
+
+def test_tldr_bilingual_prompt_requests_english_and_chinese(llm_params):
+    base_client = make_stub_openai_client()
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return base_client.chat.completions.create(**kwargs)
+
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create)),
+        embeddings=base_client.embeddings,
+    )
+    paper = make_sample_paper()
+
+    paper.generate_tldr(client, {**llm_params, "bilingual": True})
+
+    messages = calls[0]["messages"]
+    assert "exactly two lines" in messages[0]["content"]
+    assert "English:" in messages[1]["content"]
+    assert "中文：" in messages[1]["content"]
 
 
 def test_tldr_without_abstract_or_fulltext(llm_params):

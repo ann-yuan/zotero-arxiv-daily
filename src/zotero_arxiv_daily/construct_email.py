@@ -1,5 +1,6 @@
 from .protocol import Paper
 import math
+from html import escape
 
 
 framework = """
@@ -62,6 +63,9 @@ def get_block_html(
     categories: str = None,
     matched_keywords: str = None,
 ):
+    # Preserve bilingual TLDR line breaks while escaping model output before
+    # inserting it into the HTML email.
+    tldr_html = '<br>'.join(escape(str(tldr or '')).splitlines())
     scope_details = ""
     if categories:
         scope_details += f"<strong>Categories:</strong> {categories}<br>"
@@ -93,7 +97,7 @@ def get_block_html(
     </tr>
     <tr>
         <td style="font-size: 14px; color: #333; padding: 8px 0;">
-            <strong>TLDR:</strong> {tldr}
+            <strong>TLDR:</strong> {tldr_html}
         </td>
     </tr>
     {scope_row}
@@ -109,7 +113,7 @@ def get_block_html(
         title=title,
         authors=authors,
         rate=rate,
-        tldr=tldr,
+        tldr_html=tldr_html,
         pdf_url=pdf_url,
         affiliations=affiliations,
         scope_row=scope_row,

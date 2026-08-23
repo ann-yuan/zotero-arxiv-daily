@@ -73,6 +73,19 @@ def test_get_block_html_contains_all_fields():
     assert "MIT" in html
 
 
+def test_get_block_html_preserves_bilingual_tldr_lines():
+    html = get_block_html(
+        "Title",
+        "Auth",
+        "3.5",
+        "English: A short summary.\n中文：一段简短的总结。",
+        "http://pdf.url",
+    )
+    assert "English: A short summary." in html
+    assert "中文：一段简短的总结。" in html
+    assert "English: A short summary.<br>中文" in html
+
+
 def test_get_empty_html():
     html = get_empty_html()
     assert "No Papers Today" in html

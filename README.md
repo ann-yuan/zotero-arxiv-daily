@@ -96,12 +96,13 @@ llm:
     base_url: ${oc.env:OPENAI_API_BASE}
   generation_kwargs:
     model: gpt-4o-mini
+  language: English
+  bilingual: true # Generate an English TLDR and a Simplified Chinese translation.
 
 source:
   arxiv:
     category: ["cs.AI","cs.CV","cs.LG","cs.CL","cs.HC","cs.MM"]
     include_cross_list: true # Include cross-listed arXiv papers in these categories.
-    include_cross_list: false # Set to true to include arXiv cross-list papers in these categories.
   acl:
     lookback_hours: 24
   acm:
@@ -189,7 +190,8 @@ llm:
   # Arguments for the LLM API. See [here](https://platform.openai.com/docs/api-reference/chat/create) for more details.
     max_tokens: 16384
     model: ???
-  language: English # Preferred language for the TL;DR. Example: English
+  language: English # Preferred language for a single-language TL;DR. Example: English
+  bilingual: true # Generate an English TLDR and a Simplified Chinese translation.
 
 reranker:
   local:
