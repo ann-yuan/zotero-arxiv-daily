@@ -129,4 +129,5 @@ class AcmRetriever(BaseRetriever):
             pdf_url=pdf_url,
             full_text=None,
             affiliations=unique_affiliations or None,
+            published_at=self._parse_created(raw_paper),
         )
