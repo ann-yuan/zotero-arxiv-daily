@@ -105,3 +105,41 @@ def test_acl_debug_truncates(config, monkeypatch, fixed_now):
     _patch_feed_and_pages(monkeypatch, entries)
     config.executor.debug = True
     assert len(_configure(config)._retrieve_raw_papers()) == 10
+
+
+def test_acl_historical_reads_bulk_bibtex(config, monkeypatch, fixed_now):
+    with open_dict(config.source):
+        config.source.acl = {
+            "historical": True,
+            "lookback_hours": 43800,
+            "max_results": 100,
+        }
+    bib = b'''@inproceedings{2025.sign-1.1,
+      author = {Ada Lovelace and Grace Hopper},
+      title = {Sign Language Systems},
+      abstract = {We study sign language systems.},
+      year = {2025},
+      url = {https://aclanthology.org/2025.sign-1.1/}
+    }
+    @inproceedings{2020.old-1.1,
+      author = {Old Author},
+      title = {An Old Paper},
+      year = {2020}
+    }'''
+
+    import gzip
+
+    monkeypatch.setattr(
+        "zotero_arxiv_daily.retriever.acl_retriever.requests.get",
+        lambda *args, **kwargs: SimpleNamespace(
+            content=gzip.compress(bib),
+            raise_for_status=lambda: None,
+        ),
+    )
+
+    papers = AclRetriever(config)._retrieve_raw_papers()
+
+    assert len(papers) == 1
+    assert papers[0]["title"] == "Sign Language Systems"
+    assert papers[0]["authors"] == ["Ada Lovelace", "Grace Hopper"]
+    assert papers[0]["abstract"] == "We study sign language systems."

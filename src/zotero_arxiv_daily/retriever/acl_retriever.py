@@ -1,12 +1,14 @@
 """Retrieve recently ingested papers from the ACL Anthology RSS feed."""
 
 from datetime import datetime, timedelta, timezone
+import gzip
 import html
 import json
 import re
 from time import struct_time
 from typing import Any
 
+import bibtexparser
 import feedparser
 import requests
 from loguru import logger
@@ -25,6 +27,7 @@ class AclRetriever(BaseRetriever):
     """
 
     feed_url = "https://aclanthology.org/papers/index.xml"
+    bulk_bib_url = "https://aclanthology.org/anthology+abstracts.bib.gz"
     request_headers = {
         "User-Agent": "zotero-arxiv-daily (https://github.com/TideDra/zotero-arxiv-daily)",
         "Accept": "application/rss+xml, application/xml, text/xml",
@@ -33,6 +36,9 @@ class AclRetriever(BaseRetriever):
     def __init__(self, config):
         super().__init__(config)
         self.lookback_hours = int(self.retriever_config.get("lookback_hours", 24))
+        self.historical = bool(self.retriever_config.get("historical", False))
+        self.max_results = int(self.retriever_config.get("max_results", 0))
+        self.metadata_only = bool(self.retriever_config.get("metadata_only", False))
 
     @staticmethod
     def _entry_datetime(entry: Any) -> datetime | None:
@@ -80,6 +86,9 @@ class AclRetriever(BaseRetriever):
         return authors, abstract
 
     def _retrieve_raw_papers(self) -> list[dict[str, Any]]:
+        if self.historical:
+            return self._retrieve_historical_raw_papers()
+
         feed = feedparser.parse(self.feed_url)
         entries = getattr(feed, "entries", [])
         cutoff = datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)
@@ -125,6 +134,54 @@ class AclRetriever(BaseRetriever):
         raw_papers.sort(key=lambda paper: paper["published"], reverse=True)
         if self.config.executor.debug:
             raw_papers = raw_papers[:10]
+        return raw_papers
+
+    def _retrieve_historical_raw_papers(self) -> list[dict[str, Any]]:
+        """Read ACL's official bulk BibTeX export for a multi-year run."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)
+        response = requests.get(self.bulk_bib_url, headers=self.request_headers, timeout=180)
+        response.raise_for_status()
+        database = bibtexparser.loads(gzip.decompress(response.content).decode("utf-8"))
+        raw_papers: list[dict[str, Any]] = []
+
+        for entry in database.entries:
+            try:
+                year = int(str(entry.get("year", "0"))[:4])
+            except ValueError:
+                continue
+            published = datetime(year, 1, 1, tzinfo=timezone.utc)
+            if published < cutoff:
+                continue
+
+            title = self._clean_text(entry.get("title"))
+            if not title:
+                continue
+            paper_id = entry.get("ID") or entry.get("id")
+            url = entry.get("url") or (
+                f"https://aclanthology.org/{paper_id}/" if paper_id else ""
+            )
+            if not url:
+                continue
+            author_text = str(entry.get("author", ""))
+            authors = [author.strip() for author in re.split(r"\s+and\s+", author_text) if author.strip()]
+            abstract = self._clean_text(entry.get("abstract")) or title
+            raw_papers.append(
+                {
+                    "title": title,
+                    "authors": authors,
+                    "abstract": abstract,
+                    "url": url.rstrip("/"),
+                    "pdf_url": f"{url.rstrip('/')}.pdf",
+                    "published": published,
+                }
+            )
+
+        raw_papers.sort(key=lambda paper: paper["published"], reverse=True)
+        if self.max_results:
+            raw_papers = raw_papers[:self.max_results]
+        if self.config.executor.debug:
+            raw_papers = raw_papers[:10]
+        logger.info("Historical ACL metadata yielded {} records before scope filtering", len(raw_papers))
         return raw_papers
 
     def convert_to_paper(self, raw_paper: dict[str, Any]) -> Paper:

@@ -1,0 +1,37 @@
+name: Historical papers - last 5 years
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_paper_num:
+        description: "Maximum number of papers to include in the historical email"
+        required: true
+        default: "100"
+
+jobs:
+  historical-search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ vars.REPOSITORY }}
+          ref: ${{ vars.REF }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Search and send historical papers
+        env:
+          ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
+          ZOTERO_KEY: ${{ secrets.ZOTERO_KEY }}
+          SENDER: ${{ secrets.SENDER }}
+          RECEIVER: ${{ secrets.RECEIVER }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
+        run: |
+          printf "%b\n" "$CUSTOM_CONFIG" > config/custom.yaml
+          echo "Use historical configuration: config/historical.yaml"
+          uv run src/zotero_arxiv_daily/main.py --config-name historical executor.max_paper_num=${{ inputs.max_paper_num }}

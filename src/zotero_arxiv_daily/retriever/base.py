@@ -51,7 +51,10 @@ class BaseRetriever(ABC):
                 continue
             if paper is not None:
                 papers.append(paper)
-            sleep(1)
+            # Historical metadata-only runs do not need the daily source-rate
+            # pacing or full-text downloads; keep the daily behavior unchanged.
+            if not getattr(self, "metadata_only", False):
+                sleep(1)
         return papers
 
     @staticmethod
