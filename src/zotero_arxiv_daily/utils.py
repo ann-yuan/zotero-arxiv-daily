@@ -6,10 +6,10 @@ import smtplib
 from collections import Counter
 from email.header import Header
 from email.mime.text import MIMEText
-from email.utils import parseaddr, formataddr
+from email.utils import getaddresses, parseaddr, formataddr
 from loguru import logger
 import datetime
-from omegaconf import DictConfig
+from omegaconf import DictConfig, ListConfig
 import pymupdf
 import pymupdf.layout
 pymupdf.TOOLS.mupdf_display_errors(False)
@@ -141,17 +141,32 @@ def glob_match(path:str, pattern:str) -> bool:
 
 def send_email(config:DictConfig, html:str):
     sender = config.email.sender
-    receiver = config.email.receiver
+    receiver_config = config.email.receiver
     password = config.email.sender_password
     smtp_server = config.email.smtp_server
     smtp_port = config.email.smtp_port
+
+    # Keep the original single-address format while also accepting a comma- or
+    # semicolon-separated list (or a YAML list) of recipients.
+    if isinstance(receiver_config, (list, tuple, ListConfig)):
+        receiver_parts = [str(item) for item in receiver_config]
+    else:
+        receiver_parts = [str(receiver_config).replace(';', ',')]
+    receiver_addresses = [
+        address.strip()
+        for _, address in getaddresses(receiver_parts)
+        if address.strip()
+    ]
+    if not receiver_addresses:
+        raise ValueError("email.receiver must contain at least one email address")
+
     def _format_addr(s):
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
 
     msg = MIMEText(html, 'html', 'utf-8')
     msg['From'] = _format_addr('Github Action <%s>' % sender)
-    msg['To'] = _format_addr('You <%s>' % receiver)
+    msg['To'] = ', '.join(receiver_addresses)
     today = datetime.datetime.now().strftime('%Y/%m/%d')
     msg['Subject'] = Header(f'Daily arXiv {today}', 'utf-8').encode()
 
@@ -167,5 +182,5 @@ def send_email(config:DictConfig, html:str):
             server = smtplib.SMTP(smtp_server, smtp_port)
 
     server.login(sender, password)
-    server.sendmail(sender, [receiver], msg.as_string())
+    server.sendmail(sender, receiver_addresses, msg.as_string())
     server.quit()
