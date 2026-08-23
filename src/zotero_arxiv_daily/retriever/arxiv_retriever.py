@@ -13,6 +13,7 @@ from time import sleep
 from typing import Any, Callable, TypeVar
 from loguru import logger
 import requests
+from datetime import datetime, timedelta, timezone
 
 T = TypeVar("T")
 
@@ -112,8 +113,14 @@ class ArxivRetriever(BaseRetriever):
         super().__init__(config)
         if self.config.source.arxiv.category is None:
             raise ValueError("category must be specified for arxiv.")
+        self.lookback_hours = self.retriever_config.get("lookback_hours")
+        self.max_results = self.retriever_config.get("max_results")
+        self.metadata_only = bool(self.retriever_config.get("metadata_only", False))
 
     def _retrieve_raw_papers(self) -> list[ArxivResult]:
+        if self.lookback_hours is not None:
+            return self._retrieve_historical_raw_papers()
+
         client = arxiv.Client(num_retries=10, delay_seconds=10)
         query = '+'.join(self.config.source.arxiv.category)
         include_cross_list = self.config.source.arxiv.get("include_cross_list", False)
@@ -156,16 +163,60 @@ class ArxivRetriever(BaseRetriever):
 
         return raw_papers
 
+    def _retrieve_historical_raw_papers(self) -> list[ArxivResult]:
+        """Search the configured date window through the arXiv API.
+
+        The daily path intentionally remains RSS-based. Historical runs add
+        sign-language anchors to the API query so that a multi-year window
+        does not pull every paper in the broad computer-science categories.
+        """
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=int(self.lookback_hours))
+        category_query = " OR ".join(f"cat:{category}" for category in self.config.source.arxiv.category)
+        scope_matcher = getattr(self, "scope_matcher", None)
+        anchors = getattr(scope_matcher, "anchors", ())
+        anchor_query = " OR ".join(
+            f'all:"{anchor}"' if " " in anchor else f"all:{anchor}"
+            for anchor in anchors
+        )
+        query = f"({category_query})"
+        if anchor_query:
+            query += f" AND ({anchor_query})"
+        query += f" AND submittedDate:[{cutoff.strftime('%Y%m%d%H%M')} TO {now.strftime('%Y%m%d%H%M')}]"
+
+        max_results = self.max_results
+        if max_results is not None:
+            max_results = int(max_results)
+        if self.config.executor.debug:
+            max_results = min(max_results or 10, 10)
+
+        logger.info(
+            "Historical arXiv search from {} to {} (max {} metadata records)",
+            cutoff.date(),
+            now.date(),
+            max_results or "unbounded",
+        )
+        client = arxiv.Client(num_retries=10, delay_seconds=10)
+        search = arxiv.Search(
+            query=query,
+            max_results=max_results,
+            sort_by=arxiv.SortCriterion.SubmittedDate,
+            sort_order=arxiv.SortOrder.Descending,
+        )
+        return list(client.results(search))
+
     def convert_to_paper(self, raw_paper: ArxivResult) -> Paper:
         title = raw_paper.title
         authors = [a.name for a in raw_paper.authors]
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
-        full_text = extract_text_from_tar(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_html(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_pdf(raw_paper)
+        full_text = None
+        if not self.metadata_only:
+            full_text = extract_text_from_tar(raw_paper)
+            if full_text is None:
+                full_text = extract_text_from_html(raw_paper)
+            if full_text is None:
+                full_text = extract_text_from_pdf(raw_paper)
         return Paper(
             source=self.name,
             title=title,

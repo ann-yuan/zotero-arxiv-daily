@@ -4,6 +4,7 @@ import time
 from types import SimpleNamespace
 
 import feedparser
+from omegaconf import open_dict
 
 from zotero_arxiv_daily.retriever.arxiv_retriever import ArxivRetriever, _run_with_hard_timeout
 import zotero_arxiv_daily.retriever.arxiv_retriever as arxiv_retriever
@@ -61,6 +62,37 @@ def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
 
     assert len(papers) == len(new_entries)
     assert set(p.title for p in papers) == set(e.title for e in new_entries)
+
+
+def test_arxiv_historical_search_uses_date_and_scope_query(config, monkeypatch):
+    with open_dict(config.source):
+        config.source.arxiv = {
+            "category": ["cs.AI", "cs.HC"],
+            "lookback_hours": 43800,
+            "max_results": 25,
+        }
+
+    captured = {}
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        def results(self, search):
+            captured["search"] = search
+            return iter([])
+
+    monkeypatch.setattr(arxiv_retriever.arxiv, "Client", FakeClient)
+    retriever = ArxivRetriever(config)
+    retriever.scope_matcher = SimpleNamespace(anchors=("sign language", "deaf"))
+
+    assert retriever._retrieve_raw_papers() == []
+    query = captured["search"].query
+    assert "cat:cs.AI" in query
+    assert "cat:cs.HC" in query
+    assert 'all:"sign language"' in query
+    assert "submittedDate:[" in query
+    assert captured["search"].max_results == 25
 
 
 def test_run_with_hard_timeout_returns_value():

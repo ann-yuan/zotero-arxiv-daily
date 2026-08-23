@@ -1,0 +1,25 @@
+email:
+  subject_prefix: "近五年手语文献回溯"
+
+source:
+  arxiv:
+    historical: true
+    lookback_hours: 43800 # Approximately five years.
+    max_results: 5000 # Metadata cap before scope filtering.
+    metadata_only: true # Use title/abstract; do not download thousands of PDFs.
+  acl:
+    historical: true
+    lookback_hours: 43800
+    max_results: 20000
+    metadata_only: true
+  acm:
+    historical: true
+    lookback_hours: 43800
+    max_results: 10000
+    metadata_only: true
+
+executor:
+  mode: standalone
+  send_empty: true
+  max_paper_num: 100
+  source: ["arxiv", "acl", "acm"]

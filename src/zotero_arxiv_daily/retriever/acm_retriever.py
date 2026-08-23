@@ -28,6 +28,8 @@ class AcmRetriever(BaseRetriever):
         super().__init__(config)
         self.lookback_hours = int(self.retriever_config.get("lookback_hours", 24))
         self.max_results = int(self.retriever_config.get("max_results", 100))
+        self.historical = bool(self.retriever_config.get("historical", False))
+        self.metadata_only = bool(self.retriever_config.get("metadata_only", False))
 
     def _get_json(self, params: dict[str, Any]) -> dict[str, Any]:
         for attempt in range(10):
@@ -71,6 +73,9 @@ class AcmRetriever(BaseRetriever):
         return re.sub(r"\s+", " ", html.unescape(value)).strip()
 
     def _retrieve_raw_papers(self) -> list[dict[str, Any]]:
+        if self.historical:
+            return self._retrieve_historical_raw_papers()
+
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(hours=self.lookback_hours)
         params = {
@@ -92,6 +97,45 @@ class AcmRetriever(BaseRetriever):
 
         if self.config.executor.debug:
             raw_papers = raw_papers[:10]
+        return raw_papers
+
+    def _retrieve_historical_raw_papers(self) -> list[dict[str, Any]]:
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=self.lookback_hours)
+        rows = min(self.max_results, 1000)
+        cursor = "*"
+        raw_papers: list[dict[str, Any]] = []
+
+        while len(raw_papers) < self.max_results:
+            params = {
+                "filter": f"prefix:10.1145,from-created-date:{cutoff.date()},until-created-date:{now.date()}",
+                "sort": "created",
+                "order": "desc",
+                "rows": rows,
+                "cursor": cursor,
+            }
+            result = self._get_json(params)
+            message = result.get("message", {})
+            items = message.get("items", [])
+            if not items:
+                break
+            for item in items:
+                created = self._parse_created(item)
+                if created is None or created < cutoff or created > now:
+                    continue
+                if item.get("type") not in self.allowed_types:
+                    continue
+                raw_papers.append(item)
+                if len(raw_papers) >= self.max_results:
+                    break
+            next_cursor = message.get("next-cursor")
+            if not next_cursor or next_cursor == cursor or len(items) < rows:
+                break
+            cursor = next_cursor
+
+        if self.config.executor.debug:
+            raw_papers = raw_papers[:10]
+        logger.info("Historical ACM metadata yielded {} records before scope filtering", len(raw_papers))
         return raw_papers
 
     def convert_to_paper(self, raw_paper: dict[str, Any]) -> Paper | None:

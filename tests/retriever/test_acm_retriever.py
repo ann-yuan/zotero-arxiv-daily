@@ -107,3 +107,30 @@ def test_acm_debug_truncates(config, monkeypatch, fixed_now):
     _patch_crossref(monkeypatch, items)
     config.executor.debug = True
     assert len(_configure(config)._retrieve_raw_papers()) == 10
+
+
+def test_acm_historical_uses_cursor_pagination(config, monkeypatch, fixed_now):
+    with open_dict(config.source):
+        config.source.acm = {
+            "historical": True,
+            "lookback_hours": 43800,
+            "max_results": 2,
+        }
+    items = [
+        _item("10.1145/one", "2026-08-22T10:00:00Z"),
+        _item("10.1145/two", "2026-08-22T09:00:00Z"),
+    ]
+    calls = []
+
+    def _get(url, **kwargs):
+        calls.append(kwargs["params"])
+        return SimpleNamespace(
+            json=lambda: {"message": {"items": items, "next-cursor": "next"}},
+            raise_for_status=lambda: None,
+        )
+
+    monkeypatch.setattr("zotero_arxiv_daily.retriever.acm_retriever.requests.get", _get)
+    raw = AcmRetriever(config)._retrieve_raw_papers()
+
+    assert len(raw) == 2
+    assert calls[0]["cursor"] == "*"
