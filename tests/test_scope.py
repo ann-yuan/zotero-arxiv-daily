@@ -11,8 +11,11 @@ def _config():
     return {
         "enabled": True,
         "drop_unmatched": True,
+        "include_candidates": True,
+        "candidate_name": "candidate",
+        "candidate_label": "相关候选 / 待确认",
         "sign_language": {
-            "anchors": ["sign language", "deaf"],
+            "anchors": ["sign language", "deaf", "signing", "signer"],
             "recognition": {
                 "label": "识别",
                 "strong": ["continuous sign language recognition"],
@@ -65,6 +68,16 @@ def test_contextual_keywords_require_a_global_anchor():
     assert related.matched_keywords == {"generation": ["motion generation"]}
 
 
+def test_anchor_only_papers_are_kept_as_candidates():
+    matcher = ScopeMatcher(_config())
+    candidate = _paper("Signing in a multimodal interaction study", "We study signer behaviour.")
+
+    assert matcher.filter_papers([candidate]) == [candidate]
+    assert candidate.categories == ["candidate"]
+    assert candidate.matched_keywords == {"candidate": ["signing", "signer"]}
+    assert matcher.category_labels["candidate"] == "相关候选 / 待确认"
+
+
 def test_scope_keeps_multiple_matching_categories_and_keywords():
     matcher = ScopeMatcher(_config())
     paper = _paper(
@@ -83,7 +96,7 @@ def test_scope_can_keep_unmatched_when_configured():
     config = _config()
     config["drop_unmatched"] = False
     matcher = ScopeMatcher(config)
-    paper = _paper("An unrelated paper", "No sign language content.")
+    paper = _paper("An unrelated paper", "No robotics content.")
 
     assert matcher.filter_papers([paper]) == [paper]
     assert paper.categories == []

@@ -42,6 +42,11 @@ class ScopeMatcher:
     def __init__(self, config: Mapping[str, Any] | None):
         self.enabled = bool(config.get("enabled", False)) if config else False
         self.drop_unmatched = bool(config.get("drop_unmatched", True)) if config else True
+        self.include_candidates = bool(config.get("include_candidates", False)) if config else False
+        self.candidate_name = str(config.get("candidate_name", "candidate")) if config else "candidate"
+        self.candidate_label = str(
+            config.get("candidate_label", "相关候选 / 待确认")
+        ) if config else "相关候选 / 待确认"
         self.anchors: tuple[str, ...] = ()
         self.categories: tuple[ScopeCategory, ...] = ()
 
@@ -66,7 +71,10 @@ class ScopeMatcher:
 
     @property
     def category_labels(self) -> dict[str, str]:
-        return {category.name: category.label for category in self.categories}
+        labels = {category.name: category.label for category in self.categories}
+        if self.include_candidates:
+            labels[self.candidate_name] = self.candidate_label
+        return labels
 
     @staticmethod
     def _find_matches(text: str, keywords: tuple[str, ...]) -> list[str]:
@@ -91,6 +99,13 @@ class ScopeMatcher:
             if matches:
                 categories.append(category.name)
                 matched_keywords[category.name] = matches
+
+        # Keep anchor-only papers in a clearly labelled candidate section. This
+        # broadens recall without mixing them into one of the six confirmed
+        # research categories.
+        if self.include_candidates and anchor_matches and not categories:
+            categories.append(self.candidate_name)
+            matched_keywords[self.candidate_name] = anchor_matches
 
         return categories, matched_keywords
 
@@ -123,6 +138,13 @@ class ScopeMatcher:
         for category in self.categories:
             count = sum(category.name in paper.categories for paper in kept)
             logger.info("Scope category {} ({}) matched {} papers", category.name, category.label, count)
+        if self.include_candidates:
+            candidate_count = sum(self.candidate_name in paper.categories for paper in kept)
+            logger.info(
+                "Scope candidate category {} matched {} papers",
+                self.candidate_label,
+                candidate_count,
+            )
         return kept
 
     def rank_standalone(self, papers: list[Paper]) -> list[Paper]:
