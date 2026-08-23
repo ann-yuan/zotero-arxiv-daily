@@ -15,7 +15,7 @@ def _config():
         "candidate_name": "candidate",
         "candidate_label": "相关候选 / 待确认",
         "sign_language": {
-            "anchors": ["sign language", "deaf"],
+            "anchors": ["sign language", "deaf", "signing", "signer"],
             "recognition": {
                 "label": "识别",
                 "strong": ["continuous sign language recognition"],
@@ -96,7 +96,7 @@ def test_scope_can_keep_unmatched_when_configured():
     config = _config()
     config["drop_unmatched"] = False
     matcher = ScopeMatcher(config)
-    paper = _paper("An unrelated paper", "No sign language content.")
+    paper = _paper("An unrelated paper", "No robotics content.")
 
     assert matcher.filter_papers([paper]) == [paper]
     assert paper.categories == []
