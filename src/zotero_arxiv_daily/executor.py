@@ -9,6 +9,7 @@ from datetime import datetime
 from .reranker import get_reranker_cls
 from .construct_email import render_email
 from .utils import send_email
+from .scope import ScopeMatcher
 from openai import OpenAI
 from tqdm import tqdm
 
@@ -34,9 +35,12 @@ class Executor:
         self.config = config
         self.include_path_patterns = normalize_path_patterns(config.zotero.include_path, "include_path")
         self.ignore_path_patterns = normalize_path_patterns(config.zotero.ignore_path, "ignore_path")
+        self.scope_matcher = ScopeMatcher(config.get("scope"))
         self.retrievers = {
             source: get_retriever_cls(source)(config) for source in config.executor.source
         }
+        for retriever in self.retrievers.values():
+            retriever.scope_matcher = self.scope_matcher
         self.reranker = get_reranker_cls(config.executor.reranker)(config)
         self.openai_client = OpenAI(api_key=config.llm.api.key, base_url=config.llm.api.base_url)
     def fetch_zotero_corpus(self) -> list[CorpusPaper]:
@@ -106,6 +110,8 @@ class Executor:
             logger.info(f"Retrieved {len(papers)} {source} papers")
             all_papers.extend(papers)
         logger.info(f"Total {len(all_papers)} papers retrieved from all sources")
+        all_papers = self.scope_matcher.filter_papers(all_papers)
+        logger.info(f"Total {len(all_papers)} papers remaining after scope filtering")
         reranked_papers = []
         if len(all_papers) > 0:
             logger.info("Reranking papers...")
@@ -119,6 +125,9 @@ class Executor:
             logger.info("No new papers found. No email will be sent.")
             return
         logger.info("Sending email...")
-        email_content = render_email(reranked_papers)
+        email_content = render_email(
+            reranked_papers,
+            category_labels=self.scope_matcher.category_labels,
+        )
         send_email(self.config, email_content)
         logger.info("Email sent successfully")

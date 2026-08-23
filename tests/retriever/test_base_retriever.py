@@ -8,6 +8,7 @@ from omegaconf import open_dict
 
 from zotero_arxiv_daily.retriever.base import BaseRetriever, register_retriever, get_retriever_cls
 from zotero_arxiv_daily.protocol import Paper
+from zotero_arxiv_daily.scope import ScopeMatcher
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +120,49 @@ def test_retrieve_papers_empty_raw(config, monkeypatch):
     retriever = EmptyRetriever(config)
     papers = retriever.retrieve_papers()
     assert papers == []
+
+
+def test_retrieve_papers_scope_prefilters_before_conversion(config, monkeypatch):
+    monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
+
+    @register_retriever("scope_prefilter_test")
+    class ScopePrefilterRetriever(BaseRetriever):
+        def _retrieve_raw_papers(self):
+            return [
+                {"title": "A sign language dataset", "abstract": "A corpus."},
+                {"title": "An unrelated paper", "abstract": "No matching topic."},
+            ]
+
+        def convert_to_paper(self, raw_paper):
+            return Paper(
+                source=self.name,
+                title=raw_paper["title"],
+                authors=[],
+                abstract=raw_paper["abstract"],
+                url="https://example.com/paper",
+            )
+
+    with open_dict(config.source):
+        config.source.scope_prefilter_test = {}
+    retriever = ScopePrefilterRetriever(config)
+    retriever.scope_matcher = ScopeMatcher(
+        {
+            "enabled": True,
+            "drop_unmatched": True,
+            "sign_language": {
+                "anchors": ["sign language"],
+                "datasets": {
+                    "label": "数据集",
+                    "strong": ["sign language dataset"],
+                    "contextual": [],
+                },
+            },
+        }
+    )
+
+    papers = retriever.retrieve_papers()
+
+    assert [paper.title for paper in papers] == ["A sign language dataset"]
 
 
 def test_get_retriever_cls_unknown():

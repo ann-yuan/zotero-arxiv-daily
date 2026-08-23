@@ -52,7 +52,26 @@ def get_empty_html():
   """
   return block_template
 
-def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affiliations:str=None):
+def get_block_html(
+    title: str,
+    authors: str,
+    rate: str,
+    tldr: str,
+    pdf_url: str,
+    affiliations: str = None,
+    categories: str = None,
+    matched_keywords: str = None,
+):
+    scope_details = ""
+    if categories:
+        scope_details += f"<strong>Categories:</strong> {categories}<br>"
+    if matched_keywords:
+        scope_details += f"<strong>Matched keywords:</strong> {matched_keywords}"
+    scope_row = (
+        f'<tr><td style="font-size: 13px; color: #666; padding: 4px 0;">{scope_details}</td></tr>'
+        if scope_details
+        else ""
+    )
     block_template = """
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
     <tr>
@@ -77,6 +96,7 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
             <strong>TLDR:</strong> {tldr}
         </td>
     </tr>
+    {scope_row}
 
     <tr>
         <td style="padding: 8px 0;">
@@ -85,7 +105,15 @@ def get_block_html(title:str, authors:str, rate:str, tldr:str, pdf_url:str, affi
     </tr>
 </table>
 """
-    return block_template.format(title=title, authors=authors,rate=rate, tldr=tldr, pdf_url=pdf_url, affiliations=affiliations)
+    return block_template.format(
+        title=title,
+        authors=authors,
+        rate=rate,
+        tldr=tldr,
+        pdf_url=pdf_url,
+        affiliations=affiliations,
+        scope_row=scope_row,
+    )
 
 def get_stars(score:float):
     full_star = '<span class="full-star">⭐</span>'
@@ -104,28 +132,58 @@ def get_stars(score:float):
         return '<div class="star-wrapper">'+full_star * full_star_num + half_star * half_star_num + '</div>'
 
 
-def render_email(papers:list[Paper]) -> str:
+def _render_paper_block(paper: Paper, category_labels: dict[str, str] | None = None) -> str:
+    rate = round(paper.score, 1) if paper.score is not None else 'Unknown'
+    author_list = [a for a in paper.authors]
+    num_authors = len(author_list)
+    if num_authors <= 5:
+        authors = ', '.join(author_list)
+    else:
+        authors = ', '.join(author_list[:3] + ['...'] + author_list[-2:])
+    if paper.affiliations is not None:
+        affiliations = paper.affiliations[:5]
+        affiliations = ', '.join(affiliations)
+        if len(paper.affiliations) > 5:
+            affiliations += ', ...'
+    else:
+        affiliations = 'Unknown Affiliation'
+
+    labels = category_labels or {}
+    categories = ', '.join(labels.get(category, category) for category in paper.categories)
+    keywords = []
+    for category in paper.categories:
+        keywords.extend(paper.matched_keywords.get(category, []))
+    keywords = ', '.join(dict.fromkeys(keywords))
+    return get_block_html(
+        paper.title,
+        authors,
+        rate,
+        paper.tldr,
+        paper.pdf_url,
+        affiliations,
+        categories,
+        keywords,
+    )
+
+
+def render_email(papers: list[Paper], category_labels: dict[str, str] | None = None) -> str:
     parts = []
     if len(papers) == 0 :
         return framework.replace('__CONTENT__', get_empty_html())
-    
-    for p in papers:
-        #rate = get_stars(p.score)
-        rate = round(p.score, 1) if p.score is not None else 'Unknown'
-        author_list = [a for a in p.authors]
-        num_authors = len(author_list)
-        if num_authors <= 5:
-            authors = ', '.join(author_list)
-        else:
-            authors = ', '.join(author_list[:3] + ['...'] + author_list[-2:])
-        if p.affiliations is not None:
-            affiliations = p.affiliations[:5]
-            affiliations = ', '.join(affiliations)
-            if len(p.affiliations) > 5:
-                affiliations += ', ...'
-        else:
-            affiliations = 'Unknown Affiliation'
-        parts.append(get_block_html(p.title, authors, rate, p.tldr, p.pdf_url, affiliations))
+
+    labels = category_labels or {}
+    has_categories = bool(labels) and any(p.categories for p in papers)
+    if has_categories:
+        for category, label in labels.items():
+            category_papers = [paper for paper in papers if category in paper.categories]
+            if not category_papers:
+                continue
+            parts.append(
+                f'<h2 style="font-family: Arial, sans-serif; color: #333; border-bottom: 2px solid #ddd; padding-bottom: 6px;">{label}</h2>'
+            )
+            parts.extend(_render_paper_block(paper, labels) for paper in category_papers)
+    else:
+        parts.extend(_render_paper_block(paper, labels) for paper in papers)
 
     content = '<br>' + '</br><br>'.join(parts) + '</br>'
     return framework.replace('__CONTENT__', content)

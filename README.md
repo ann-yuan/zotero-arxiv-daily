@@ -47,6 +47,8 @@
   - chemrxiv
   - ACL Anthology
   - ACM Digital Library (via Crossref metadata)
+- Filter sign-language papers into six research categories using strong/contextual keywords and global sign-language anchors.
+- Keep multiple category labels per paper and group the email by category before relevance ranking within each group.
 
 ## 📷 Screenshot
 ![screenshot](./assets/screenshot.png)
@@ -108,10 +110,27 @@ source:
 executor:
   debug: ${oc.env:DEBUG,null}
   source: ['arxiv', 'acl', 'acm']
+
+scope:
+  enabled: true
+  drop_unmatched: true
 ```
 Set `source.arxiv.include_cross_list: true` if you want cross-listed papers included.
 >[!NOTE]
 > `${oc.env:XXX,yyy}` means the value of the environment variable `XXX`. If the variable is not set, the default value `yyy` will be used.
+
+The default scope in `config/base.yaml` contains six sign-language research categories: recognition, translation, generation, datasets/corpora/annotation, linguistics, and education/accessibility. Each category has `strong` keywords that match directly and `contextual` keywords that only match when a global sign-language anchor (such as `sign language`, `signer`, or `deaf`) is also present. Papers matching more than one category retain all labels and appear in each corresponding email section. Papers matching no category are dropped before Zotero embedding reranking.
+
+To customise the scope, add or override the nested lists in the public `CUSTOM_CONFIG` variable. For example:
+```yaml
+scope:
+  enabled: true
+  drop_unmatched: true
+  sign_language:
+    recognition:
+      strong: ["continuous sign language recognition", "fingerspelling recognition"]
+      contextual: ["handshape recognition"]
+```
 
 Here is the full configuration, `???` means the value must be filled in:
 ```yaml
@@ -135,6 +154,14 @@ source:
   acm:
     lookback_hours: 24 # How far back to inspect Crossref-created ACM records.
     max_results: 100 # Maximum number of Crossref records to inspect before reranking.
+
+scope:
+  enabled: true # Filter papers using the sign-language scope below.
+  drop_unmatched: true # Drop papers that match none of the configured categories.
+  sign_language:
+    anchors: ["sign language", "signed language", "signing", "signer", "signers", "fingerspelling", "deaf"]
+    # recognition / translation / generation / datasets / linguistics / education_accessibility
+    # Each category contains a label, strong keyword list, and contextual keyword list.
 
 email:
   sender: ??? # The email account of the SMTP server that sends you email. Example: abc@qq.com
