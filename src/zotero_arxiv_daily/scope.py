@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import re
 from typing import Any, Mapping
 
@@ -123,3 +124,56 @@ class ScopeMatcher:
             count = sum(category.name in paper.categories for paper in kept)
             logger.info("Scope category {} ({}) matched {} papers", category.name, category.label, count)
         return kept
+
+    def rank_standalone(self, papers: list[Paper]) -> list[Paper]:
+        """Rank scoped papers without a Zotero corpus.
+
+        Strong keyword matches receive twice the weight of contextual matches;
+        papers matching more categories receive a small diversity bonus, and
+        newer records receive a recency bonus. Scores are normalised to the
+        same 0-10 range used by the embedding reranker.
+        """
+        if not papers:
+            return []
+
+        strong_keywords = {
+            category.name: {_normalise_text(keyword) for keyword in category.strong}
+            for category in self.categories
+        }
+        raw_scores: list[float] = []
+        now = datetime.now(timezone.utc)
+        for paper in papers:
+            keyword_score = 0.0
+            for category, keywords in paper.matched_keywords.items():
+                strong = strong_keywords.get(category, set())
+                keyword_score += sum(
+                    2.0 if _normalise_text(keyword) in strong else 1.0
+                    for keyword in keywords
+                )
+
+            category_bonus = min(len(paper.categories), len(self.categories)) * 0.5
+            recency_bonus = 0.0
+            if paper.published_at is not None:
+                published_at = paper.published_at
+                if published_at.tzinfo is None:
+                    published_at = published_at.replace(tzinfo=timezone.utc)
+                age_days = max(
+                    0.0,
+                    (now - published_at.astimezone(timezone.utc)).total_seconds() / 86400,
+                )
+                recency_bonus = 1.0 / (1.0 + age_days)
+            raw_scores.append(keyword_score + category_bonus + recency_bonus)
+
+        maximum = max(raw_scores, default=0.0)
+        for paper, raw_score in zip(papers, raw_scores):
+            paper.score = 10.0 * raw_score / maximum if maximum else 0.0
+        ranked = sorted(
+            papers,
+            key=lambda paper: (
+                paper.score or 0.0,
+                paper.published_at.timestamp() if paper.published_at is not None else float("-inf"),
+            ),
+            reverse=True,
+        )
+        logger.info("Standalone scope ranking scored {} papers without Zotero", len(ranked))
+        return ranked

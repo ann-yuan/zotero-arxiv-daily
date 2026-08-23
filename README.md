@@ -65,8 +65,8 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 
 | Key |Description | Example |
 | :---  | :---  | :--- |
-| ZOTERO_ID  | User ID of your Zotero account. **User ID is not your username, but a sequence of numbers**Get your ID from [here](https://www.zotero.org/settings/security). You can find it at the position shown in this [screenshot](https://github.com/TideDra/zotero-arxiv-daily/blob/main/assets/userid.png). | 12345678  |
-| ZOTERO_KEY | An Zotero API key with read access. Get a key from [here](https://www.zotero.org/settings/security).  | AB5tZ877P2j7Sm2Mragq041H   |
+| ZOTERO_ID  | User ID of your Zotero account. Only needed when `executor.mode: zotero`. **User ID is not your username, but a sequence of numbers**Get your ID from [here](https://www.zotero.org/settings/security). | 12345678  |
+| ZOTERO_KEY | A Zotero API key with read access. Only needed when `executor.mode: zotero`. Get a key from [here](https://www.zotero.org/settings/security). | AB5tZ877P2j7Sm2Mragq041H   |
 | SENDER | The email account of the SMTP server that sends you email. | abc@qq.com |
 | SENDER_PASSWORD | The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this.   | abcdefghijklmn |
 | RECEIVER | The e-mail address that receives the paper list. | abc@outlook.com |
@@ -79,8 +79,8 @@ Then you should also set a public variable `CUSTOM_CONFIG` for your custom confi
 Paste the following content into the value of `CUSTOM_CONFIG` variable:
 ```yaml
 zotero:
-  user_id: ${oc.env:ZOTERO_ID}
-  api_key: ${oc.env:ZOTERO_KEY}
+  user_id: null # Not needed in standalone mode.
+  api_key: null # Not needed in standalone mode.
   include_path: null # Or e.g. ["2026/survey/**", "2026/reading-group/**"]
 
 email:
@@ -108,6 +108,7 @@ source:
     max_results: 100
 
 executor:
+  mode: standalone # Use 'zotero' to rank against your Zotero library.
   debug: ${oc.env:DEBUG,null}
   source: ['arxiv', 'acl', 'acm']
 
@@ -119,7 +120,11 @@ Set `source.arxiv.include_cross_list: true` if you want cross-listed papers incl
 >[!NOTE]
 > `${oc.env:XXX,yyy}` means the value of the environment variable `XXX`. If the variable is not set, the default value `yyy` will be used.
 
-The default scope in `config/base.yaml` contains six sign-language research categories: recognition, translation, generation, datasets/corpora/annotation, linguistics, and education/accessibility. Each category has `strong` keywords that match directly and `contextual` keywords that only match when a global sign-language anchor (such as `sign language`, `signer`, or `deaf`) is also present. Papers matching more than one category retain all labels and appear in each corresponding email section. Papers matching no category are dropped before Zotero embedding reranking.
+The default scope in `config/base.yaml` contains six sign-language research categories: recognition, translation, generation, datasets/corpora/annotation, linguistics, and education/accessibility. Each category has `strong` keywords that match directly and `contextual` keywords that only match when a global sign-language anchor (such as `sign language`, `signer`, or `deaf`) is also present. Papers matching more than one category retain all labels and appear in each corresponding email section. Papers matching no category are dropped before ranking.
+
+### Standalone mode
+
+Set `executor.mode: standalone` to skip Zotero completely. In this mode the workflow only retrieves papers from the configured sources, applies the six-category keyword scope, and ranks retained papers by strong/contextual keyword matches, number of matched categories, and recency. It does not need `ZOTERO_ID`, `ZOTERO_KEY`, or a Zotero library. `executor.mode: zotero` keeps the original behavior and uses the Zotero corpus for embedding-based relevance ranking.
 
 To customise the scope, add or override the nested lists in the public `CUSTOM_CONFIG` variable. For example:
 ```yaml
@@ -194,6 +199,7 @@ reranker:
     batch_size: null # The batch size for embedding API requests. Adjust to match your provider's limit. Example: 64
 
 executor:
+  mode: standalone # Or 'zotero' to rank against your Zotero library.
   debug: false # Whether to use debug mode. Example: true
   send_empty: false # Whether to send an empty email even if no new papers today. Example: true
   max_paper_num: 100 # The maximum number of the papers presented in the email. Example: 100

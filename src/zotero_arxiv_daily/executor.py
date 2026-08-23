@@ -33,6 +33,10 @@ def normalize_path_patterns(patterns: list[str] | ListConfig | None, config_key:
 class Executor:
     def __init__(self, config:DictConfig):
         self.config = config
+        self.mode = str(config.executor.get("mode", "standalone")).lower()
+        if self.mode not in {"zotero", "standalone"}:
+            raise ValueError("executor.mode must be either 'zotero' or 'standalone'")
+        self.use_zotero = self.mode == "zotero"
         self.include_path_patterns = normalize_path_patterns(config.zotero.include_path, "include_path")
         self.ignore_path_patterns = normalize_path_patterns(config.zotero.ignore_path, "ignore_path")
         self.scope_matcher = ScopeMatcher(config.get("scope"))
@@ -41,7 +45,7 @@ class Executor:
         }
         for retriever in self.retrievers.values():
             retriever.scope_matcher = self.scope_matcher
-        self.reranker = get_reranker_cls(config.executor.reranker)(config)
+        self.reranker = get_reranker_cls(config.executor.reranker)(config) if self.use_zotero else None
         self.openai_client = OpenAI(api_key=config.llm.api.key, base_url=config.llm.api.base_url)
     def fetch_zotero_corpus(self) -> list[CorpusPaper]:
         logger.info("Fetching zotero corpus")
@@ -95,11 +99,15 @@ class Executor:
 
     
     def run(self):
-        corpus = self.fetch_zotero_corpus()
-        corpus = self.filter_corpus(corpus)
-        if len(corpus) == 0:
-            logger.error(f"No zotero papers found. Please check your zotero settings:\n{self.config.zotero}")
-            return
+        corpus = []
+        if self.use_zotero:
+            corpus = self.fetch_zotero_corpus()
+            corpus = self.filter_corpus(corpus)
+            if len(corpus) == 0:
+                logger.error(f"No zotero papers found. Please check your zotero settings:\n{self.config.zotero}")
+                return
+        else:
+            logger.info("Standalone mode is enabled; Zotero will not be read")
         all_papers = []
         for source, retriever in self.retrievers.items():
             logger.info(f"Retrieving {source} papers...")
@@ -114,8 +122,12 @@ class Executor:
         logger.info(f"Total {len(all_papers)} papers remaining after scope filtering")
         reranked_papers = []
         if len(all_papers) > 0:
-            logger.info("Reranking papers...")
-            reranked_papers = self.reranker.rerank(all_papers, corpus)
+            if self.use_zotero:
+                logger.info("Reranking papers against Zotero corpus...")
+                reranked_papers = self.reranker.rerank(all_papers, corpus)
+            else:
+                logger.info("Ranking papers with standalone scope score...")
+                reranked_papers = self.scope_matcher.rank_standalone(all_papers)
             reranked_papers = reranked_papers[:self.config.executor.max_paper_num]
             logger.info("Generating TLDR and affiliations...")
             for p in tqdm(reranked_papers):

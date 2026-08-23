@@ -136,4 +136,5 @@ class AclRetriever(BaseRetriever):
             url=raw_paper["url"],
             pdf_url=raw_paper["pdf_url"],
             full_text=None,
+            published_at=raw_paper.get("published"),
         )

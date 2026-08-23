@@ -45,6 +45,20 @@ def test_normalize_path_patterns_accepts_none():
     assert normalize_path_patterns(None, "include_path") is None
 
 
+def test_executor_standalone_mode_does_not_construct_zotero_reranker(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.executor.mode = "standalone"
+    monkeypatch.setattr("zotero_arxiv_daily.executor.OpenAI", lambda **kwargs: object())
+
+    executor = Executor(config)
+
+    assert executor.mode == "standalone"
+    assert executor.use_zotero is False
+    assert executor.reranker is None
+
+
 # ---------------------------------------------------------------------------
 # filter_corpus — migrated from test_include_path.py
 # ---------------------------------------------------------------------------

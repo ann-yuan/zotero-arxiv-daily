@@ -22,6 +22,7 @@ class Paper:
     score: Optional[float] = None
     categories: list[str] = field(default_factory=list)
     matched_keywords: dict[str, list[str]] = field(default_factory=dict)
+    published_at: Optional[datetime] = None
 
     def _generate_tldr_with_llm(self, openai_client:OpenAI,llm_params:dict) -> str:
         lang = llm_params.get('language', 'English')

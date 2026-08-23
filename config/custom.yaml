@@ -1,6 +1,6 @@
 zotero:
-  user_id: ${oc.env:ZOTERO_ID}
-  api_key: ${oc.env:ZOTERO_KEY}
+  user_id: null # Not needed in standalone mode.
+  api_key: null # Not needed in standalone mode.
   include_path: null # Or set a list of glob patterns, e.g. ["2026/survey/**","2026/reading-group/**"]
 
 email:
@@ -31,5 +31,6 @@ scope:
   drop_unmatched: true
 
 executor:
+  mode: standalone
   debug: ${oc.env:DEBUG,null}
   source: ['arxiv', 'acl', 'acm']

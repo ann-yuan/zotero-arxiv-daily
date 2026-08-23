@@ -1,6 +1,8 @@
 """Tests for sign-language scope matching and grouped email rendering."""
 
 from zotero_arxiv_daily.construct_email import render_email
+from datetime import datetime, timedelta, timezone
+
 from zotero_arxiv_daily.protocol import Paper
 from zotero_arxiv_daily.scope import ScopeMatcher
 
@@ -85,6 +87,20 @@ def test_scope_can_keep_unmatched_when_configured():
 
     assert matcher.filter_papers([paper]) == [paper]
     assert paper.categories == []
+
+
+def test_standalone_rank_prefers_strong_matches_and_recent_papers():
+    matcher = ScopeMatcher(_config())
+    strong = _paper("Continuous sign language recognition", "A benchmark study.")
+    recent_contextual = _paper("Motion generation for deaf signers", "A sign language study.")
+    strong.published_at = datetime.now(timezone.utc) - timedelta(days=3)
+    recent_contextual.published_at = datetime.now(timezone.utc)
+    matcher.filter_papers([strong, recent_contextual])
+
+    ranked = matcher.rank_standalone([strong, recent_contextual])
+
+    assert ranked[0] is strong
+    assert strong.score > recent_contextual.score
 
 
 def test_render_email_groups_papers_by_category_and_shows_matches():

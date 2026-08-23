@@ -148,4 +148,5 @@ class ChemrxivRetriever(BaseRetriever):
             url=url,
             pdf_url=pdf_url,
             full_text=full_text,
+            published_at=self._parse_date(raw_paper.get("created", {}).get("date-time")),
         )
