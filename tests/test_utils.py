@@ -133,6 +133,20 @@ def test_send_email_starttls_success(config, monkeypatch):
     assert "text/html" in body
 
 
+def test_send_email_supports_multiple_receivers(config, monkeypatch):
+    sent = []
+    config.email.receiver = "first@example.com, second@example.com;third@example.com"
+    monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
+
+    send_email(config, "<html>hello</html>")
+
+    assert sent[0][1] == [
+        "first@example.com",
+        "second@example.com",
+        "third@example.com",
+    ]
+
+
 def test_send_email_falls_back_to_ssl(config, monkeypatch):
     sent = []
     call_count = {"smtp": 0}

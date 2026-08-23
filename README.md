@@ -69,7 +69,7 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 | ZOTERO_KEY | A Zotero API key with read access. Only needed when `executor.mode: zotero`. Get a key from [here](https://www.zotero.org/settings/security). | AB5tZ877P2j7Sm2Mragq041H   |
 | SENDER | The email account of the SMTP server that sends you email. | abc@qq.com |
 | SENDER_PASSWORD | The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this.   | abcdefghijklmn |
-| RECEIVER | The e-mail address that receives the paper list. | abc@outlook.com |
+| RECEIVER | The e-mail address(es) that receive the paper list. Use commas or semicolons to separate multiple addresses. | abc@outlook.com, def@example.com |
 | OPENAI_API_KEY | API Key when using the API to access LLMs. You can get FREE API for using advanced open source LLMs in [SiliconFlow](https://cloud.siliconflow.cn/i/b3XhBRAm). | sk-xxx |
 | OPENAI_API_BASE | API URL when using the API to access LLMs. | https://api.siliconflow.cn/v1 |
 
