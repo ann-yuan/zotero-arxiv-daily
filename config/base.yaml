@@ -6,7 +6,7 @@ zotero:
 
 source:
   arxiv:
-    category: null # The categories of target arxiv papers. Find the abbr of your research area from [here](https://arxiv.org/category_taxonomy). Example: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: null # The categories of target arxiv papers. Find the abbr of your research area from [here](https://arxiv.org/category_taxonomy). Example: ["cs.AI","cs.CV","cs.LG","cs.CL","cs.HC","cs.MM"]
     include_cross_list: false # Whether to include arXiv cross-list papers in subscribed categories. Example: true
   biorxiv:
     category: null # The categories of target biorxiv papers. Find categories from [here](https://www.biorxiv.org/). Example: ["biochemistry","animal behavior and cognition"]
@@ -42,6 +42,14 @@ scope:
         - "isolated sign language recognition"
         - "continuous sign recognition"
         - "continuous sign language recognition"
+        - "dynamic sign language recognition"
+        - "sign language video recognition"
+        - "sign language classification"
+        - "continuous sign language classification"
+        - "isolated sign classification"
+        - "sign language understanding"
+        - "sign language action recognition"
+        - "sign language detection"
         - "sign spotting"
         - "sign language spotting"
         - "fingerspelling recognition"
@@ -53,6 +61,10 @@ scope:
         - "unseen signer recognition"
       contextual:
         - "sign classification"
+        - "gesture recognition"
+        - "hand gesture recognition"
+        - "action recognition"
+        - "video understanding"
         - "sign detection"
         - "sign segmentation"
         - "temporal sign segmentation"
@@ -73,6 +85,11 @@ scope:
         - "sign language translation"
         - "signed language translation"
         - "automatic sign language translation"
+        - "continuous sign language translation"
+        - "sign language machine translation"
+        - "sign language video translation"
+        - "sign language-to-text"
+        - "sign-to-sign translation"
         - "sign-to-text translation"
         - "sign to text translation"
         - "sign-to-spoken-language translation"
@@ -104,6 +121,9 @@ scope:
         - "sign text retrieval"
         - "sign language retrieval"
         - "cross-modal sign retrieval"
+        - "cross-modal retrieval"
+        - "video-text retrieval"
+        - "multimodal language model"
         - "sign language representation learning"
         - "sign-text alignment"
         - "sign text alignment"
@@ -116,6 +136,11 @@ scope:
         - "sign language generation"
         - "signed language generation"
         - "automatic sign language generation"
+        - "sign language video generation"
+        - "sign language pose generation"
+        - "sign language animation generation"
+        - "sign language motion synthesis"
+        - "sign language avatar generation"
         - "sign language synthesis"
         - "sign language animation"
         - "text-to-sign"
@@ -151,6 +176,9 @@ scope:
       strong:
         - "sign language dataset"
         - "sign language datasets"
+        - "sign language video dataset"
+        - "signing dataset"
+        - "sign language data set"
         - "signed language dataset"
         - "sign language corpus"
         - "sign language corpora"
@@ -206,6 +234,11 @@ scope:
       label: "语言学"
       strong:
         - "sign language linguistics"
+        - "sign language discourse"
+        - "sign language prosody"
+        - "sign language lexicography"
+        - "sign language variation"
+        - "sign language documentation"
         - "signed language linguistics"
         - "sign linguistics"
         - "sign language grammar"
@@ -267,6 +300,12 @@ scope:
         - "deaf education"
         - "sign language education"
         - "sign language teaching"
+        - "sign language curriculum"
+        - "sign language assessment"
+        - "sign language literacy"
+        - "sign language learning technology"
+        - "deaf education technology"
+        - "sign language tutoring"
         - "sign language instruction"
         - "sign language pedagogy"
         - "sign language learning"

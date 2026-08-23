@@ -19,7 +19,8 @@ llm:
 
 source:
   arxiv:
-    category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: ["cs.AI","cs.CV","cs.LG","cs.CL","cs.HC","cs.MM"]
+    include_cross_list: true
   acl:
     lookback_hours: 24
   acm:
@@ -29,6 +30,9 @@ source:
 scope:
   enabled: true
   drop_unmatched: true
+  include_candidates: true
+  candidate_name: candidate
+  candidate_label: "相关候选 / 待确认"
 
 executor:
   mode: standalone

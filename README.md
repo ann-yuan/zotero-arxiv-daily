@@ -99,7 +99,8 @@ llm:
 
 source:
   arxiv:
-    category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: ["cs.AI","cs.CV","cs.LG","cs.CL","cs.HC","cs.MM"]
+    include_cross_list: true # Include cross-listed arXiv papers in these categories.
     include_cross_list: false # Set to true to include arXiv cross-list papers in these categories.
   acl:
     lookback_hours: 24
@@ -115,12 +116,17 @@ executor:
 scope:
   enabled: true
   drop_unmatched: true
+  include_candidates: true # Keep anchor-only papers in a separate candidate section.
+  candidate_name: candidate
+  candidate_label: "相关候选 / 待确认"
 ```
 Set `source.arxiv.include_cross_list: true` if you want cross-listed papers included.
 >[!NOTE]
 > `${oc.env:XXX,yyy}` means the value of the environment variable `XXX`. If the variable is not set, the default value `yyy` will be used.
 
 The default scope in `config/base.yaml` contains six sign-language research categories: recognition, translation, generation, datasets/corpora/annotation, linguistics, and education/accessibility. Each category has `strong` keywords that match directly and `contextual` keywords that only match when a global sign-language anchor (such as `sign language`, `signer`, or `deaf`) is also present. Papers matching more than one category retain all labels and appear in each corresponding email section. Papers matching no category are dropped before ranking.
+
+When `scope.include_candidates` is enabled, papers that contain a global sign-language anchor but do not yet match a specific subcategory are retained under `相关候选 / 待确认`. This increases recall without mixing those papers into the six confirmed category sections.
 
 ### Standalone mode
 
