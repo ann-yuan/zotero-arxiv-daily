@@ -26,6 +26,10 @@ source:
     lookback_hours: 24
     max_results: 100
 
+scope:
+  enabled: true
+  drop_unmatched: true
+
 executor:
   debug: ${oc.env:DEBUG,null}
   source: ['arxiv', 'acl', 'acm']
